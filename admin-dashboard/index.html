@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>종가예측게임 - 관리자 대시보드</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap');
+:root{
+  --bg:#0A0E18; --surface:#161E30; --surface-2:#1E2A42; --border:#28324A;
+  --text:#F1F4FA; --muted:#8894AB; --muted-2:#5C6884;
+  --up:#F0355B; --down:#3D7CF0; --gold:#FFC542; --mint:#2FE0A6; --violet:#9B8CFF;
+  --gold-soft:rgba(255,197,66,.14); --mint-soft:rgba(47,224,166,.14); --up-soft:rgba(240,53,91,.14);
+  --font-d:'Space Grotesk',sans-serif; --font-b:'Inter',sans-serif; --font-m:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);min-height:100vh;}
+.hidden{display:none !important;}
+
+/* login */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;}
+.login-box{width:360px;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:32px;}
+.login-box h1{font-family:var(--font-d);font-size:20px;margin-bottom:4px;}
+.login-box p{font-size:12px;color:var(--muted);margin-bottom:22px;}
+.field{margin-bottom:12px;}
+.field label{font-size:11px;color:var(--muted);display:block;margin-bottom:5px;font-weight:600;}
+.field input,.field select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-size:13px;font-family:var(--font-b);}
+.btn{padding:10px 16px;border-radius:10px;border:none;font-weight:700;font-size:13px;cursor:pointer;background:var(--mint);color:#04241A;}
+.btn:active{transform:scale(.98);}
+.btn.gold{background:var(--gold);color:#1A1300;}
+.btn.danger{background:var(--up);color:#fff;}
+.btn.ghost{background:var(--surface-2);color:var(--text);border:1px solid var(--border);}
+.btn.small{padding:6px 10px;font-size:11px;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.err{color:var(--up);font-size:12px;margin-top:10px;min-height:14px;}
+
+/* app shell */
+.app{display:none;min-height:100vh;grid-template-columns:220px 1fr;}
+.app.show{display:grid;}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:20px 14px;display:flex;flex-direction:column;}
+.brand{font-family:var(--font-d);font-weight:700;font-size:16px;margin-bottom:22px;display:flex;align-items:center;gap:8px;}
+.brand .mark{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,var(--up),var(--down));}
+.nav-btn{display:block;width:100%;text-align:left;background:none;border:none;color:var(--muted);padding:10px 12px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:4px;}
+.nav-btn.active{background:var(--surface-2);color:var(--text);}
+.nav-btn:hover{color:var(--text);}
+.sidebar-footer{margin-top:auto;font-size:11px;color:var(--muted-2);}
+.sidebar-footer .who{color:var(--text);font-weight:600;margin-bottom:8px;}
+
+.main{padding:24px 32px;overflow-y:auto;max-height:100vh;}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+.topbar h2{font-family:var(--font-d);font-size:19px;}
+.apibase{font-size:11px;color:var(--muted-2);font-family:var(--font-m);}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:16px;}
+.card h3{font-family:var(--font-d);font-size:14px;margin-bottom:14px;color:var(--mint);}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.checkrow{display:flex;gap:8px;}
+.check-pill{flex:1;text-align:center;font-size:12px;font-weight:600;padding:9px 0;border-radius:10px;border:1px solid var(--border);cursor:pointer;color:var(--muted);}
+.check-pill.on{background:var(--mint-soft);color:var(--mint);border-color:rgba(47,224,166,.4);}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;padding:8px 10px;border-bottom:1px solid var(--border);}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+.mono{font-family:var(--font-m);}
+.badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;}
+.badge.open{background:var(--mint-soft);color:var(--mint);}
+.badge.locked{background:var(--gold-soft);color:var(--gold);}
+.badge.settled{background:var(--surface-2);color:var(--muted);}
+.badge.critical{background:var(--up-soft);color:var(--up);}
+.badge.warn{background:var(--gold-soft);color:var(--gold);}
+.badge.win{background:var(--mint-soft);color:var(--mint);}
+.badge.pending{background:var(--surface-2);color:var(--muted);}
+
+.pool-line{font-size:11px;color:var(--muted);margin-top:3px;}
+.pool-line b{color:var(--gold);}
+.inline-form{display:flex;gap:6px;margin-top:6px;align-items:center;}
+.inline-form input,.inline-form select{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px;color:var(--text);font-size:12px;}
+.toast{position:fixed;top:20px;right:20px;background:var(--text);color:var(--bg);padding:12px 16px;border-radius:10px;font-size:12.5px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .2s;z-index:99;}
+.toast.show{opacity:1;}
+.empty{color:var(--muted);font-size:12px;padding:16px;text-align:center;}
+.section-sub{font-size:11.5px;color:var(--muted);margin-bottom:10px;}
+textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-size:13px;font-family:var(--font-b);resize:vertical;}
+.emoji-picker{position:relative;margin-top:8px;border:1px solid var(--border);background:var(--bg);border-radius:12px;padding:10px;}
+.emoji-picker input{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:12px;margin-bottom:8px;}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;max-height:180px;overflow-y:auto;}
+.emoji-item{font-size:20px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 0;cursor:pointer;}
+.emoji-item:hover{border-color:var(--mint);}
+</style>
+</head>
+<body>
+
+<div class="login-wrap" id="loginWrap">
+  <div class="login-box">
+    <h1>📈 종가예측게임 관리자</h1>
+    <p>백엔드 API에 직접 연결되는 실제 관리자 대시보드입니다.</p>
+    <div class="field"><label>API 주소</label><input id="apiBaseInput" value="https://stock-game-ccga.onrender.com"></div>
+    <div class="field"><label>이메일</label><input id="loginEmail" value="admin@test.com"></div>
+    <div class="field"><label>비밀번호</label><input id="loginPassword" type="password" value="admin1234"></div>
+    <button class="btn gold" style="width:100%;" onclick="doLogin()">로그인</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</div>
+
+<div class="app" id="app">
+  <div class="sidebar">
+    <div class="brand"><span class="mark"></span>관리자 콘솔</div>
+    <button class="nav-btn active" data-tab="games" onclick="switchTab('games')">🎮 게임</button>
+    <button class="nav-btn" data-tab="tiers" onclick="switchTab('tiers')">🎚️ 난이도설정</button>
+    <button class="nav-btn" data-tab="coupons" onclick="switchTab('coupons')">🎟️ 쿠폰</button>
+    <button class="nav-btn" data-tab="announcements" onclick="switchTab('announcements')">📢 공지사항</button>
+    <button class="nav-btn" data-tab="notify" onclick="switchTab('notify')">📨 알림</button>
+    <button class="nav-btn" data-tab="audit" onclick="switchTab('audit')">🧾 감사로그</button>
+    <button class="nav-btn" data-tab="fraud" onclick="switchTab('fraud')">🚨 부정거래</button>
+    <button class="nav-btn" data-tab="users" onclick="switchTab('users')">👥 회원</button>
+    <div class="sidebar-footer">
+      <div class="who" id="whoAmI"></div>
+      <button class="btn ghost small" style="width:100%;" onclick="doLogout()">로그아웃</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <h2 id="pageTitle">게임 관리</h2>
+      <div class="apibase" id="apiBaseShow"></div>
+    </div>
+    <div id="content"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let state = { apiBase: 'https://stock-game-ccga.onrender.com', token: null, me: null, tab: 'games' };
+
+/* ---------------- API helper ---------------- */
+async function api(path, method = 'GET', body) {
+  const res = await fetch(state.apiBase + path, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(state.token ? { Authorization: 'Bearer ' + state.token } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = (data && (data.message || data.error)) || res.statusText;
+    throw new Error(Array.isArray(msg) ? msg.join(', ') : msg);
+  }
+  return data;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._t);
+  window._t = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+/* ---------------- Login ---------------- */
+async function doLogin() {
+  state.apiBase = document.getElementById('apiBaseInput').value.replace(/\/$/, '');
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPassword').value;
+  const errBox = document.getElementById('loginErr');
+  errBox.textContent = '';
+  try {
+    const res = await api('/auth/login', 'POST', { email, password });
+    if (res.user.role !== 'ADMIN' && res.user.role !== 'SUPER_ADMIN') {
+      errBox.textContent = '관리자 계정이 아닙니다';
+      return;
+    }
+    state.token = res.accessToken;
+    state.me = res.user;
+    document.getElementById('loginWrap').classList.add('hidden');
+    document.getElementById('app').classList.add('show');
+    document.getElementById('whoAmI').textContent = res.user.name + ' (' + res.user.email + ')';
+    document.getElementById('apiBaseShow').textContent = state.apiBase;
+    switchTab('games');
+  } catch (e) {
+    errBox.textContent = e.message || '로그인에 실패했습니다';
+  }
+}
+function doLogout() {
+  state.token = null; state.me = null;
+  document.getElementById('app').classList.remove('show');
+  document.getElementById('loginWrap').classList.remove('hidden');
+}
+
+/* ---------------- Tabs ---------------- */
+const TAB_TITLES = {
+  games: '게임 관리', tiers: '난이도 설정', coupons: '쿠폰 관리', announcements: '공지사항 관리',
+  notify: '알림 설정', audit: '감사로그', fraud: '부정거래 모니터링', users: '회원 관리',
+};
+function switchTab(tab) {
+  state.tab = tab;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.getElementById('pageTitle').textContent = TAB_TITLES[tab];
+  render();
+}
+async function render() {
+  const c = document.getElementById('content');
+  c.innerHTML = '<div class="empty">불러오는 중…</div>';
+  try {
+    if (state.tab === 'games') await renderGames(c);
+    else if (state.tab === 'tiers') await renderTiers(c);
+    else if (state.tab === 'coupons') await renderCoupons(c);
+    else if (state.tab === 'announcements') await renderAnnouncements(c);
+    else if (state.tab === 'notify') await renderNotify(c);
+    else if (state.tab === 'audit') await renderAudit(c);
+    else if (state.tab === 'fraud') await renderFraud(c);
+    else if (state.tab === 'users') await renderUsers(c);
+  } catch (e) {
+    c.innerHTML = '<div class="card"><div class="err">' + (e.message || '불러오기 실패') + '</div></div>';
+  }
+}
+
+/* ---------------- 게임 ---------------- */
+async function renderGames(c) {
+  const [stocks, games] = await Promise.all([api('/stocks'), api('/admin/games')]);
+  window._stocks = stocks;
+
+  c.innerHTML = `
+    <div class="card">
+      <h3>▸ 다음 게임 설정</h3>
+      <div class="two-col">
+        <div class="field"><label>종목</label>
+          <select id="ng_stock">${stocks.map(s => `<option value="${s.id}">[${s.market}] ${s.name} (${s.code})</option>`).join('')}</select>
+        </div>
+        <div class="field"><label>초기 투자 풀 시드(P)</label><input id="ng_seed" type="number" value="1000"></div>
+      </div>
+      <div class="field">
+        <label>활성 난이도</label>
+        <div class="checkrow">
+          <div class="check-pill on" data-tier="LOW" onclick="toggleTierPill(this)">LOW</div>
+          <div class="check-pill" data-tier="MID" onclick="toggleTierPill(this)">MID</div>
+          <div class="check-pill" data-tier="HIGH" onclick="toggleTierPill(this)">HIGH</div>
+        </div>
+      </div>
+      <div class="field"><label>정산 날짜 (그 날 한국 증시 마감 후 자동 정산)</label><input id="ng_deadline" type="date"></div>
+      <button class="btn gold" onclick="createGame()">게임 등록</button>
+    </div>
+
+    <div class="card">
+      <h3>▸ 종목 목록에 없는 종목 추가</h3>
+      <div class="section-sub">여기서 추가하면 바로 위 종목 선택 목록에 나타나요</div>
+      <div class="two-col">
+        <div class="field"><label>시장 구분</label><input id="ns_market" value="KR" placeholder="예: KR"></div>
+        <div class="field"><label>종목코드</label><input id="ns_code" placeholder="예: 000100"></div>
+      </div>
+      <div class="field"><label>종목명</label><input id="ns_name" placeholder="예: 유한양행"></div>
+      <button class="btn ghost" onclick="createStock()">종목 추가</button>
+    </div>
+
+    <div class="card">
+      <h3>▸ 등록된 게임 (${games.length})</h3>
+      ${games.length ? games.map(gameRowHtml).join('') : '<div class="empty">게임이 없습니다</div>'}
+    </div>
+  `;
+
+  games.forEach(g => fetchAndShowQuote(g.id, g.stock.id));
+}
+async function fetchAndShowQuote(gameId, stockId) {
+  const el = document.getElementById('quote_' + gameId);
+  if (!el) return;
+  try {
+    const q = await api('/stocks/' + stockId + '/quote');
+    if (q.error) { el.textContent = '시세 조회 실패: ' + q.error; return; }
+    const sign = q.changePercent > 0 ? '+' : '';
+    const color = q.changePercent > 0 ? 'var(--up)' : q.changePercent < 0 ? 'var(--down)' : 'var(--muted)';
+    el.innerHTML = `현재가 ${q.price.toLocaleString()} <span style="color:${color};font-weight:700;">${sign}${q.changePercent}%</span>`;
+  } catch (e) { el.textContent = '시세 조회 실패'; }
+}
+async function createStock() {
+  const market = document.getElementById('ns_market').value;
+  const code = document.getElementById('ns_code').value;
+  const name = document.getElementById('ns_name').value;
+  if (!market || !code || !name) { showToast('⚠️ 시장구분/종목코드/종목명을 모두 입력하세요'); return; }
+  try {
+    await api('/admin/stocks', 'POST', { market, code, name });
+    showToast('✅ 종목이 추가됐어요: ' + name);
+    render();
+  } catch (e) { showToast('⚠️ ' + e.message); }
+}
+function toggleTierPill(el) { el.classList.toggle('on'); }
+function gameRowHtml(g) {
+  const statusClass = g.status === 'OPEN' ? 'open' : g.status === 'LOCKED' ? 'locked' : 'settled';
+  return `
+    <div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div><b>[${g.stock.market}] ${g.stock.name}</b> <span class="badge ${statusClass}">${g.status}</span></div>
+        <div class="mono" style="font-size:11px;color:var(--muted);">${new Date(g.deadlineAt).toLocaleString('ko-KR')}</div>
+      </div>
+      <div id="quote_${g.id}" class="mono" style="font-size:12px;color:var(--muted);margin-top:4px;">시세 조회 중…</div>
+      ${g.tierPools.map(tp => `
+        <div class="pool-line">${tp.tier}: 풀 <b>${tp.poolPoints.toLocaleString()}P</b>
+          ${tp.bonusPoints ? ' + 보너스 ' + tp.bonusPoints.toLocaleString() + 'P' : ''}
+          ${tp.carriedInPoints ? ' (이월 ' + tp.carriedInPoints.toLocaleString() + 'P 포함)' : ''}
+          · 참여 ${tp.participants}명
+        </div>
+      `).join('')}
+      ${g.actualPct !== null && g.actualPct !== undefined ? `<div class="pool-line">실제 등락률: <b>${g.actualPct}%</b></div>` : ''}
+      ${g.status !== 'SETTLED' ? `
+        <div class="inline-form">
+          <select id="bonus_tier_${g.id}">${g.tierPools.map(tp => `<option value="${tp.tier}">${tp.tier}</option>`).join('')}</select>
+          <input id="bonus_amt_${g.id}" type="number" placeholder="보너스P" style="width:100px;">
+          <button class="btn small ghost" onclick="addBonus('${g.id}')">보너스 지급</button>
+        </div>
+        <div class="inline-form">
+          <input id="settle_actual_${g.id}" type="number" step="0.01" placeholder="실제 등락률 %" style="width:130px;">
+          <button class="btn small danger" onclick="settleGame('${g.id}')">지금 정산</button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+async function createGame() {
+  const stockId = document.getElementById('ng_stock').value;
+  const seedPoints = Number(document.getElementById('ng_seed').value);
+  const settleDate = document.getElementById('ng_deadline').value;
+  const tiers = Array.from(document.querySelectorAll('.check-pill.on')).map(el => el.dataset.tier);
+  if (!settleDate) { showToast('⚠️ 정산 날짜를 입력하세요'); return; }
+  if (!tiers.length) { showToast('⚠️ 난이도를 1개 이상 선택하세요'); return; }
+  try {
+    await api('/admin/games', 'POST', { stockId, seedPoints, settleDate, tiers });
+    showToast('✅ 게임이 등록되었습니다 (해당 날짜 증시 마감 후 자동 정산)');
+    render();
+  } catch (e) { showToast('⚠️ ' + e.message); }
+}
+async function addBonus(gameId) {
+  const tier = document.getElementById('bonus_tier_' + gameId).value;
+  const amount = Number(document.getElementById('bonus_amt_' + gameId).value);
+  if (!amount || amount <= 0) { showToast('⚠️ 보너스 금액을 입력하세요'); return; }
+  try {
+    await api('/admin/games/' + gameId + '/bonus', 'POST', { tier, amount });
+    showToast('🎉 보너스가 지급되었습니다');
+    render();
+  } catch (e) { showToast('⚠️ ' + e.message); }
+}
+async function settleGame(gameId) {
+  const actualPct = Number(document.getElementById('settle_actual_' + gameId).value);
+  if (Number.isNaN(actualPct)) { showToast('⚠️ 실제 등락률을 입력하세요'); return; }
+  if (!confirm('정말 이 게임을 정산할까요? 되돌릴 수 없습니다.')) return;
+  try {
+    const res = await api('/admin/games/' + gameId + '/settle', 'POST', { actualPct });
+    showToast('📊 정산 완료: ' + JSON.stringify(res.tiers.map(t => t.tier + (t.hasWinner ? ' 지급' : ' 이월'))));
+    render();
+  } catch (e) { showToast('⚠️ ' + e.message); }
+}
+
+/* ---------------- 난이도 설정 ---------------- */
+async function renderTiers(c) {
+  const configs = await api('/tier-config');
+  c.innerHTML = configs.map(cfg => `
+    <div class="card">
+      <h3>${cfg.tier} 단계</h3>
+      <div class="section-sub">현재: ${cfg.stepPct}% 단위, 최대 ±${cfg.maxPct}%</div>
+      <div class="two-col">
+        <div class="field"><label>단위(%)</label><input id="tc_step_${cfg.tier}" type="number" step="0.05" value="${cfg.stepPct}"></div>
+        <div class="field"><label>최대범위(%)</label><input id="tc_max_${cfg.tier}" type="number" step="0.5" value="${cfg.maxPct}"></div>
+      </div>
+      <button class="btn gold" onclick="applyTier('${cfg.tier}')">적용하기</button>
+    </div>
+  `).join('');
+}
+async function applyTier(tier) {
+  const stepPct = Number(document.getElementById('tc_step_' + tier).value);
+  const maxPct = Number(document.getElementById('tc_max_' + tier).value);
+  try {
+    await api('/admin/tier-config/' + tier, 'PUT', { stepPct, maxPct });
+    showToast('✅ ' + tier + ' 기준이 적용되었습니다');
+    render();
+  } catch (e) { showToast('⚠️ ' + e.message); }
+}
+
+/* ---------------- 쿠폰 ---------------- */
+async function renderCoupons(c) {
+  const [coupons, expiring] = await Promise.all([api('/admin/coupons'), api('/admin/coupons/expiring?days=30')]);
+  c.innerHTML = `
+    <div class="card">
+      <h3>▸ 쿠폰 등록</h3>
+      <div class="field"><label>상품명</label><input id="cp_name"></div>
+      <div class="two-col">
+        <div class="field"><label>가격(P)</label><input id="cp_cost" type="number" value="500"></div>
+        <div class="field"><label>재고</label><input id="cp_stock" type="number" value="10"></div>
+      </div>
+      <div class="field"><label>쿠폰번호</label><input id="cp_code"></div>
+      <div class="two-col">
+        <div class="field"><label>유효기간</label><input id="cp_expiry" type="date"></div>
+        <div class="field"><label>이미지 아이콘</label>
+          <button type="button" class="btn ghost" id="cp_emoji_btn" onclick="toggleEmojiPicker()" style="width:100%;font-size:20px;">🎁</button>
+          <input type="hidden" id="cp_emoji" value="🎁">
+          <div id="emojiPicker" class="emoji-picker hidden">
+            <input id="emojiSearch" placeholder="검색 (예: 커피, 영화, 편의점, 치킨)" oninput="filterEmojis(this.value)">
+            <div id="emojiGrid" class="emoji-grid"></div>
+          </div>
+        </div>
+      </div>
+      <button class="btn gold" onclick="createCoupon()">쿠폰 등록</button>
+    </div>
+    <div class="card">
+      <h3>⏰ 만료 임박 (30일 이내) - ${expiring.length}건</h3>
+      ${expiring.length ? expiring.map(c => `<div class="pool-line">${c.emoji} ${c.name} · ${c.code} · ${new Date(c.expiryDate).toLocaleDateString('ko-KR')}</div>`).join('') : '<div class="empty">없음</div>'}
+    </div>
+    <div class="card">
+      <h3>▸ 전체 쿠폰 (${coupons.length})</h3>
+      <table>
+        <tr><th>상품</th><th>가격</th><th>재고</th><th>번호</th><th>유효기간</th><th></th></tr>
+        ${coupons.map(c => `
+          <tr>
+            <td>${c.emoji} ${c.name}</td>
+            <td class="mono">${c.costPoints.toLocaleString()}P</td>
+            <td>${c.stockQty}</td>
+            <td class="mono">${c.code}</td>
+            <td>${new Date(c.expiryDate).toLocaleDateString('ko-KR')}</td>
+            <td><button class="btn small danger" onclick="deleteCoupon('${c.id}')">삭제</button></td>
+          </tr>
+        `).join('')}
+      </table>
+    </div>
+  `;
+}
+async function createCoupon() {
+  const dto = {
+    name: document.getElementById('cp_name').value,
+    costPoints: Number(document.getElementById('cp_cost').value),
+    stockQty: Number(document.getElementById('cp_stock').value),
+    code: document.getElementById('cp_code').value,
+    expiryDate: document.getElementById('cp_expiry').value,
+    emoji: document.getElementById('cp_emoji').value || '🎁',
+  };
+  if (!dto.name || !dto.code || !dto.expiryDate) { showToast('⚠️ 상품명/쿠폰번호/유효기간을 입력하세요'); return; }
+  try {
+    await api('/admin/coupons', 'POST', { ...dto, expiryDate: new Date(dto.expiryDate).toISOString() });
+    showToast('✅ 쿠폰이 등록되었습니다');
+    render();
+  } catch (e) { showToast('⚠️ ' + e.message); }
+}
+async function deleteCoupon(id) {
+  if (!confirm('삭제할까요?')) return;
+  try { await api('/admin/coupons/' + id, 'DELETE'); showToast('🗑 삭제되었습니다'); render(); }
+  catch (e) { showToast('⚠️ ' + e.message); }
+}
+
+/* ---------------- 이모지 선택기 ---------------- */
+const EMOJI_CATALOG = [
+  { e: '☕', k: ['커피', '카페', '아메리카노', '스타벅스'] },
+  { e: '🍵', k: ['차', '티'] },
+  { e: '🥤', k: ['음료', '주스', '스무디'] },
+  { e: '🍔', k: ['버거', '햄버거', '배달'] },
+  { e: '🍕', k: ['피자'] },
+  { e: '🍗', k: ['치킨', '닭'] },
+  { e: '🍰', k: ['케이크', '디저트'] },
+  { e: '🍦', k: ['아이스크림'] },
+  { e: '🥐', k: ['베이커리', '빵'] },
+  { e: '🎬', k: ['영화', 'cgv', '메가박스', '영화관'] },
+  { e: '🎮', k: ['게임'] },
+  { e: '🎫', k: ['티켓', '회원권', '입장권'] },
+  { e: '🏪', k: ['편의점', 'gs25', 'cu', '세븐일레븐'] },
+  { e: '🛍️', k: ['쇼핑', '백화점'] },
+  { e: '👕', k: ['옷', '의류'] },
+  { e: '👟', k: ['신발'] },
+  { e: '💄', k: ['화장품', '뷰티'] },
+  { e: '📚', k: ['책', '서점'] },
+  { e: '💳', k: ['상품권', '기프트카드'] },
+  { e: '🎁', k: ['선물'] },
+  { e: '📦', k: ['택배', '배송'] },
+  { e: '✈️', k: ['여행', '항공'] },
+  { e: '🏨', k: ['숙박', '호텔'] },
+  { e: '⛽', k: ['주유', '기름'] },
+  { e: '💇', k: ['미용실', '헤어'] },
+  { e: '🏋️', k: ['헬스', '운동'] },
+  { e: '🎵', k: ['음악', '멜론'] },
+  { e: '📱', k: ['통신', '휴대폰'] },
+];
+function renderEmojiGrid(filter) {
+  const grid = document.getElementById('emojiGrid');
+  if (!grid) return;
+  const q = (filter || '').trim().toLowerCase();
+  const list = q ? EMOJI_CATALOG.filter(x => x.k.some(k => k.includes(q))) : EMOJI_CATALOG;
+  grid.innerHTML = list.length
+    ? list.map(x => `<button type="button" class="emoji-item" onclick="pickEmoji('${x.e}')">${x.e}</button>`).join('')
+    : '<div class="empty" style="grid-column:1/-1;">검색 결과 없음</div>';
+}
+function toggleEmojiPicker() {
+  const p = document.getElementById('emojiPicker');
+  p.classList.toggle('hidden');
+  if (!p.classList.contains('hidden')) {
+    document.getElementById('emojiSearch').value = '';
+    renderEmojiGrid('');
+    document.getElementById('emojiSearch').focus();
+  }
+}
+function filterEmojis(v) { renderEmojiGrid(v); }
+function pickEmoji(e) {
+  document.getElementById('cp_emoji').value = e;
+  document.getElementById('cp_emoji_btn').textContent = e;
+  document.getElementById('emojiPicker').classList.add('hidden');
+}
+
+/* ---------------- 공지사항 ---------------- */
+async function renderAnnouncements(c) {
+  const list = await api('/admin/announcements');
+  c.innerHTML = `
+    <div class="card">
+      <h3>▸ 공지사항 / 이벤트 등록</h3>
+      <div class="field"><label>제목</label><input id="an_title"></div>
+      <div class="field"><label>내용 (텍스트, 선택)</label><textarea id="an_body" rows="3"></textarea></div>
+      <div class="field"><label>이미지 URL (선택)</label><input id="an_image" placeholder="https://..."></div>
+      <div class="two-col">
+        <div class="field"><label>노출 시작 (선택, 비우면 즉시)</label><input id="an_start" type="datetime-local"></div>
+        <div class="field"><label>노출 종료 (선택, 비우면 무기한)</label><input id="an_end" type="datetime-local"></div>
+      </div>
+      <button class="btn gold" onclick="createAnnouncement()">등록</button>
+    </div>
+    <div class="card">
+      <h3>▸ 등록된 공지 (${list.length})</h3>
+      ${list.length ? list.map(a => `
+        <div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b>${a.title}</b>
+            <span class="badge ${a.active ? 'open' : 'settled'}">${a.active ? '노출중' : '비활성'}</span>
+          </div>
+          ${a.body ? `<div class="pool-line">${a.body}</div>` : ''}
+          ${a.imageUrl ? `<img src="${a.imageUrl}" style="max-width:160px;border-radius:8px;margin-top:8px;display:block;" onerror="this.style.display='none'">` : ''}
+          <div class="pool-line">${a.startAt ? new Date(a.startAt).toLocaleString('ko-KR') : '즉시'} ~ ${a.endAt ? new Date(a.endAt).toLocaleString('ko-KR') : '무기한'}</div>
+          <div class="inline-form">
+            <button class="btn small ghost" onclick="toggleAnnouncement('${a.id}', ${!a.active})">${a.active ? '비활성화' : '활성화'}</button>
+            <button class="btn small danger" onclick="deleteAnnouncement('${a.id}')">삭제</button>
+          </div>
+        </div>
+      `).join('') : '<div class="empty">등록된 공지가 없습니다</div>'}
+    </div>
+  `;
+}
+async function createAnnouncement() {
+  const title = document.getElementById('an_title').value;
+  const body = document.getElementById('an_body').value;
+  const imageUrl = document.getElementById('an_image').value;
+  const startAt = document.getElementById('an_start').value;
+  const endAt = document.getElementById('an_end').value;
+  if (!title) { showToast('⚠️ 제목을 입력하세요'); return; }
+  try {
+    await api('/admin/announcements', 'POST', {
+      title,
+      body: body || undefined,
+      imageUrl: imageUrl || undefined,
+      startAt: startAt ? new Date(startAt).toISOString() : undefined,
+      endAt: endAt ? new Date(endAt).toISOString() : undefined,
+    });
+    showToast('✅ 공지사항이 등록되었습니다');
+    render();
+  } catch (e) { showToast('⚠️ ' + e.message); }
+}
+async function toggleAnnouncement(id, active) {
+  try { await api('/admin/announcements/' + id, 'PATCH', { active }); showToast('✅ 변경되었습니다'); render(); }
+  catch (e) { showToast('⚠️ ' + e.message); }
+}
+async function deleteAnnouncement(id) {
+  if (!confirm('삭제할까요?')) return;
+  try { await api('/admin/announcements/' + id, 'DELETE'); showToast('🗑 삭제되었습니다'); render(); }
+  catch (e) { showToast('⚠️ ' + e.message); }
+}
+
+/* ---------------- 알림 ---------------- */
+async function renderNotify(c) {
+  const [settings, logs] = await Promise.all([api('/admin/notify/settings'), api('/admin/notify/logs')]);
+  c.innerHTML = `
+    <div class="card">
+      <h3>▸ 텔레그램 / 카카오 설정</h3>
+      <div class="field"><label>텔레그램 봇 토큰</label><input id="nt_token" value="${settings.telegramToken || ''}"></div>
+      <div class="field"><label>텔레그램 채팅 ID</label><input id="nt_chat" value="${settings.telegramChatId || ''}"></div>
+      <div class="checkrow">
+        <div class="check-pill ${settings.telegramEnabled ? 'on' : ''}" id="nt_tg_pill" onclick="this.classList.toggle('on')">텔레그램 알림</div>
+        <div class="check-pill ${settings.kakaoEnabled ? 'on' : ''}" id="nt_kk_pill" onclick="this.classList.toggle('on')">카카오 알림</div>
+      </div>
+      <button class="btn gold" style="margin-top:10px;" onclick="saveNotify()">저장</button>
+      <button class="btn ghost" style="margin-top:10px;margin-left:8px;" onclick="sendNow()">지금 만료임박 알림 보내기</button>
+    </div>
+    <div class="card">
+      <h3>발송 이력</h3>
+      ${logs.length ? `<table><tr><th>채널</th><th>성공</th><th>시각</th><th>내용</th></tr>${logs.map(l => `
+        <tr><td>${l.channel}</td><td>${l.success ? '✅' : '❌'}</td><td>${new Date(l.createdAt).toLocaleString('ko-KR')}</td><td style="white-space:pre-wrap;">${l.message}</td></tr>
+      `).join('')}</table>` : '<div class="empty">발송 이력 없음</div>'}
+    </div>
+  `;
+}
+async function saveNotify() {
+  const dto = {
+    telegramToken: document.getElementById('nt_token').value,
+    telegramChatId: document.getElementById('nt_chat').value,
+    telegramEnabled: document.getElementById('nt_tg_pill').classList.contains('on'),
+    kakaoEnabled: document.getElementById('nt_kk_pill').classList.contains('on'),
+  };
+  try { await api('/admin/notify/settings', 'PUT', dto); showToast('✅ 저장되었습니다'); render(); }
+  catch (e) { showToast('⚠️ ' + e.message); }
+}
+async function sendNow() {
+  try { const res = await api('/admin/notify/send-expiry-alert', 'POST'); showToast(res.sent ? '📨 알림을 보냈습니다' : '알림 미발송: ' + (res.reason || '')); render(); }
+  catch (e) { showToast('⚠️ ' + e.message); }
+}
+
+/* ---------------- 감사로그 ---------------- */
+async function renderAudit(c) {
+  const logs = await api('/admin/audit-logs?limit=100');
+  c.innerHTML = `
+    <div class="card">
+      <h3>▸ 최근 관리자 행동 (${logs.length}건)</h3>
+      <table>
+        <tr><th>시각</th><th>관리자ID</th><th>메서드</th><th>경로</th><th>내용</th></tr>
+        ${logs.map(l => `
+          <tr>
+            <td class="mono">${new Date(l.createdAt).toLocaleString('ko-KR')}</td>
+            <td class="mono" style="font-size:10px;">${l.adminId.slice(0, 8)}…</td>
+            <td>${l.method}</td>
+            <td class="mono" style="font-size:11px;">${l.path}</td>
+            <td class="mono" style="font-size:10px;max-width:260px;overflow-wrap:anywhere;">${l.body ? JSON.stringify(l.body) : ''}</td>
+          </tr>
+        `).join('')}
+      </table>
+    </div>
+  `;
+}
+
+/* ---------------- 부정거래 ---------------- */
+async function renderFraud(c) {
+  const alerts = await api('/admin/fraud-alerts?resolved=false');
+  c.innerHTML = `
+    <div class="card">
+      <h3>▸ 미해결 경고 (${alerts.length}건)</h3>
+      <button class="btn ghost" style="margin-bottom:12px;" onclick="runFraudNow()">지금 검사 실행</button>
+      ${alerts.length ? alerts.map(a => `
+        <div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+          <span class="badge ${a.severity}">${a.severity}</span>
+          <span style="margin-left:8px;font-weight:600;">${a.type}</span>
+          <div class="pool-line">${a.detail}</div>
+          <div class="pool-line">${new Date(a.createdAt).toLocaleString('ko-KR')} ${a.userId ? '· user: ' + a.userId.slice(0, 8) + '…' : ''}</div>
+          <button class="btn small ghost" style="margin-top:6px;" onclick="resolveAlert('${a.id}')">해결 처리</button>
+        </div>
+      `).join('') : '<div class="empty">미해결 경고가 없습니다</div>'}
+    </div>
+  `;
+}
+async function runFraudNow() {
+  try { await api('/admin/fraud-alerts/run', 'POST'); showToast('🔎 검사를 실행했습니다'); render(); }
+  catch (e) { showToast('⚠️ ' + e.message); }
+}
+async function resolveAlert(id) {
+  try { await api('/admin/fraud-alerts/' + id + '/resolve', 'PATCH'); showToast('✅ 해결 처리되었습니다'); render(); }
+  catch (e) { showToast('⚠️ ' + e.message); }
+}
+
+/* ---------------- 회원 ---------------- */
+async function renderUsers(c) {
+  const users = await api('/admin/users');
+  c.innerHTML = `
+    <div class="card">
+      <h3>▸ 전체 회원 (${users.length}명)</h3>
+      <div class="section-sub">어뷰징이 의심되면 포인트란에 금액을 입력하고 사유를 적은 뒤 "회수"를 누르세요. 보정 지급이 필요하면 "지급"을 쓰세요. 모든 조정은 포인트 원장에 기록돼요.</div>
+      ${users.map(u => `
+        <div class="admin-row">
+          <div class="admin-row-top">
+            <div>
+              <div class="rn">${u.nickname} (${u.name}) · ${u.role}</div>
+              <div class="rs">${u.email}${u.phone ? ' · ' + u.phone : ''}<br>추천코드 ${u.referralCode} · 가입 ${new Date(u.createdAt).toLocaleDateString('ko-KR')}</div>
+            </div>
+            <div class="mono" style="font-weight:700;color:var(--gold);white-space:nowrap;">${u.points.toLocaleString()}P</div>
+          </div>
+          <div class="bonus-form">
+            <input type="number" id="adj_amt_${u.id}" placeholder="포인트" style="width:90px;">
+            <input type="text" id="adj_reason_${u.id}" placeholder="사유 (예: 다중계정 의심)" style="flex:1;">
+            <button class="mini-btn danger" onclick="adjustUserPoints('${u.id}', -1)">회수</button>
+            <button class="mini-btn action" onclick="adjustUserPoints('${u.id}', 1)">지급</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+async function adjustUserPoints(userId, sign) {
+  const amtEl = document.getElementById('adj_amt_' + userId);
+  const reasonEl = document.getElementById('adj_reason_' + userId);
+  const amount = Math.abs(Number(amtEl.value));
+  const reason = reasonEl.value;
+  if (!amount) { showToast('⚠️ 포인트를 입력하세요'); return; }
+  if (!reason) { showToast('⚠️ 사유를 입력하세요'); return; }
+  try {
+    const res = await api('/admin/users/' + userId + '/adjust-points', 'POST', { delta: amount * sign, reason });
+    showToast(`✅ ${sign > 0 ? '지급' : '회수'} 완료: ${Math.abs(res.applied).toLocaleString()}P${res.clamped ? ' (보유 포인트 한도로 조정됨)' : ''}`);
+    render();
+  } catch (e) { showToast('⚠️ ' + e.message); }
+}
+</script>
+</body>
+</html>

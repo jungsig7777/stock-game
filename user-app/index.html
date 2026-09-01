@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>종가예측게임</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap');
+:root{
+  --bg:#0A0E18; --bg-elev:#0F1524; --surface:#161E30; --surface-2:#1E2A42; --border:#28324A;
+  --text:#F1F4FA; --muted:#8894AB; --muted-2:#5C6884;
+  --up:#F0355B; --up-soft:rgba(240,53,91,.14); --down:#3D7CF0;
+  --gold:#FFC542; --gold-soft:rgba(255,197,66,.14); --mint:#2FE0A6; --mint-soft:rgba(47,224,166,.14);
+  --violet:#9B8CFF; --violet-soft:rgba(155,140,255,.14);
+  --radius:18px; --font-d:'Space Grotesk',sans-serif; --font-b:'Inter',sans-serif; --font-m:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font-b);background:radial-gradient(ellipse 900px 500px at 50% -10%, #17203a 0%, transparent 60%),var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:28px 12px;}
+.phone{width:390px;max-width:100%;background:var(--bg-elev);border-radius:36px;border:1px solid var(--border);box-shadow:0 30px 80px -20px rgba(0,0,0,.6), inset 0 0 0 6px #060911;overflow:hidden;display:flex;flex-direction:column;height:830px;position:relative;}
+.statusbar{display:flex;justify-content:space-between;align-items:center;padding:14px 24px 6px;font-family:var(--font-m);font-size:12px;color:var(--muted);}
+.app-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px;border-bottom:1px solid var(--border);}
+.brand{font-family:var(--font-d);font-weight:700;font-size:17px;display:flex;align-items:center;gap:8px;}
+.brand .mark{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,var(--up),var(--down));}
+.points-pill{font-family:var(--font-m);font-weight:600;font-size:13px;background:var(--gold-soft);color:var(--gold);border:1px solid rgba(255,197,66,.35);padding:6px 12px;border-radius:999px;}
+.apibase-note{font-size:10px;color:var(--muted-2);font-family:var(--font-m);}
+
+.content{flex:1;overflow-y:auto;padding:6px 20px 100px;animation:fadein .2s ease;}
+@keyframes fadein{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+.content::-webkit-scrollbar{width:0;}
+.section-title{font-family:var(--font-d);font-weight:600;font-size:15px;margin:18px 0 10px;}
+.section-sub{font-size:12px;color:var(--muted);margin-top:-6px;margin-bottom:14px;}
+.empty{text-align:center;color:var(--muted);font-size:13px;padding:36px 10px;border:1px dashed var(--border);border-radius:var(--radius);}
+.err{color:var(--up);font-size:12px;margin-top:8px;}
+
+/* landing/auth */
+.landing-wrap{padding:44px 6px 20px;text-align:center;}
+.landing-logo{width:60px;height:60px;border-radius:18px;background:linear-gradient(135deg,var(--up),var(--down));display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px;}
+.landing-title{font-family:var(--font-d);font-size:22px;font-weight:700;}
+.landing-tag{font-size:13px;color:var(--gold);font-weight:600;margin-top:10px;}
+.landing-desc{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.7;}
+.field{margin-bottom:11px;text-align:left;}
+.field label{font-size:11px;color:var(--muted);display:block;margin-bottom:5px;font-weight:600;}
+.field input,.field select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:9px 11px;color:var(--text);font-size:13px;font-family:var(--font-b);}
+.primary-btn{width:100%;padding:12px;border-radius:12px;border:none;background:var(--gold);color:#1A1300;font-weight:700;font-size:13px;cursor:pointer;margin-top:6px;}
+.primary-btn:active{transform:scale(.98);}
+.primary-btn:disabled{opacity:.4;}
+.back-link{font-size:12px;color:var(--muted);cursor:pointer;display:inline-flex;gap:4px;margin-top:14px;}
+
+.game-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;cursor:pointer;}
+.game-card:active{transform:scale(.985);}
+.market-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;}
+.market-badge.KR{background:rgba(240,53,91,.12);color:var(--up);}
+.market-badge.US{background:rgba(61,124,240,.12);color:var(--down);}
+.stock-name{font-family:var(--font-d);font-weight:600;font-size:16px;margin-top:6px;}
+.stock-code{font-family:var(--font-m);font-size:11px;color:var(--muted-2);margin-top:2px;}
+.deadline{font-size:11px;color:var(--muted);margin-top:6px;}
+.pool-line{font-size:10.5px;color:var(--gold);margin-top:5px;font-weight:600;line-height:1.7;}
+.tier-dots-row{display:flex;gap:6px;margin-top:10px;}
+.tier-chip-mini{font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);}
+.badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;}
+.badge.open{background:var(--mint-soft);color:var(--mint);}
+.badge.locked{background:var(--gold-soft);color:var(--gold);}
+.badge.settled{background:var(--surface-2);color:var(--muted);}
+
+.carry-banner{background:var(--violet-soft);border:1px solid rgba(155,140,255,.35);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;}
+.cb-head{font-size:12px;font-weight:700;color:var(--violet);}
+.cb-row{display:flex;gap:10px;margin-top:10px;}
+.cb-item{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center;}
+.cb-lbl{display:block;font-size:10px;color:var(--muted);margin-bottom:3px;}
+.cb-val{font-family:var(--font-m);font-weight:700;font-size:13px;color:var(--violet);}
+
+.stock-hero{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-top:12px;}
+.pool-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:14px;}
+.pool-head{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);font-weight:600;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--mint);animation:pulse 1.6s infinite;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(47,224,166,.5);}70%{box-shadow:0 0 0 8px rgba(47,224,166,0);}100%{box-shadow:0 0 0 0 rgba(47,224,166,0);}}
+.pool-num{font-family:var(--font-d);font-size:24px;font-weight:700;margin-top:6px;}
+.bonus-badge{display:inline-block;background:var(--gold-soft);color:var(--gold);border:1px solid rgba(255,197,66,.35);padding:5px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-top:9px;margin-right:6px;}
+.carry-badge{display:inline-block;background:var(--violet-soft);color:var(--violet);border:1px solid rgba(155,140,255,.35);padding:5px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-top:9px;}
+
+.tier-card{background:var(--surface);border:2px solid var(--border);border-radius:var(--radius);padding:15px 16px;margin-bottom:10px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
+.tier-card.locked{opacity:.4;cursor:not-allowed;}
+.tier-card.selected{border-color:var(--gold);background:linear-gradient(180deg,var(--gold-soft),transparent);}
+.tier-label{font-family:var(--font-d);font-weight:700;font-size:15px;}
+.tier-name{font-size:11px;color:var(--muted);font-weight:600;margin-left:8px;}
+.tier-desc{font-size:11.5px;color:var(--muted);margin-top:4px;max-width:200px;}
+.tier-pool-num{font-family:var(--font-m);font-size:14px;font-weight:700;color:var(--gold);text-align:right;}
+
+.chip-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+.chip{font-family:var(--font-m);font-size:13px;font-weight:600;padding:9px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;}
+.chip.up{color:var(--up);} .chip.down{color:var(--down);} .chip.zero{color:var(--muted);}
+.chip.active{background:var(--gold);color:#1A1300;border-color:var(--gold);}
+.chip.stakeopt{color:var(--mint);}
+.chip.stakeopt.active{background:var(--mint);color:#04241A;border-color:var(--mint);}
+.slider-box{margin-top:16px;padding:18px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);}
+.slider-value{font-family:var(--font-m);font-size:26px;font-weight:700;text-align:center;margin-bottom:12px;}
+input[type=range]{width:100%;-webkit-appearance:none;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--down),var(--border) 50%,var(--up));}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--gold);border:3px solid var(--bg-elev);cursor:pointer;}
+.stake-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:9px 11px;color:var(--text);font-size:13px;font-family:var(--font-m);margin-top:10px;}
+.submit-bar{position:sticky;bottom:0;margin-top:18px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.submit-bar .reward-txt{font-size:11.5px;color:var(--muted);flex:1;}
+.submit-btn{font-family:var(--font-d);font-weight:700;font-size:12.5px;white-space:nowrap;background:var(--gold);color:#1A1300;border:none;padding:11px 16px;border-radius:12px;cursor:pointer;}
+.submit-btn:disabled{background:var(--border);color:var(--muted-2);}
+
+.balance-card{background:linear-gradient(160deg,var(--gold-soft),var(--surface) 70%);border:1px solid rgba(255,197,66,.3);border-radius:var(--radius);padding:24px 20px;text-align:center;margin-top:10px;}
+.balance-num{font-family:var(--font-d);font-size:34px;font-weight:700;color:var(--gold);margin-top:6px;}
+.stat-row{display:flex;gap:10px;margin-top:16px;}
+.stat-box{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px;text-align:center;}
+.stat-num{font-family:var(--font-m);font-weight:700;font-size:16px;}
+.stat-lbl{font-size:10px;color:var(--muted);margin-top:2px;}
+.pred-item{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+.status-tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;margin-top:4px;display:inline-block;}
+.status-tag.pending{background:var(--surface-2);color:var(--muted);}
+.status-tag.win{background:var(--mint-soft);color:var(--mint);}
+.status-tag.lose{background:rgba(136,148,171,.12);color:var(--muted-2);}
+
+.coupon-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;}
+.coupon-emoji{font-size:26px;width:44px;height:44px;background:var(--surface-2);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.redeem-btn{font-size:12px;font-weight:700;padding:8px 12px;border-radius:10px;border:none;cursor:pointer;background:var(--gold);color:#1A1300;}
+.redeem-btn:disabled{background:var(--surface-2);color:var(--muted-2);}
+.mycoupon-code{font-family:var(--font-m);font-size:12px;letter-spacing:1px;color:var(--mint);margin-top:8px;background:var(--bg);padding:6px 9px;border-radius:8px;display:inline-block;}
+
+.profile-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center;margin-top:10px;}
+.avatar{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--up),var(--down));margin:0 auto 10px;}
+.referral-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;margin-top:14px;text-align:center;}
+.referral-code{font-family:var(--font-m);font-size:20px;font-weight:700;color:var(--gold);margin-top:6px;letter-spacing:2px;}
+.menu-list{margin-top:16px;}
+.menu-item{display:flex;justify-content:space-between;padding:13px 4px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;}
+.rw-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;}
+.rw-card h5{font-family:var(--font-d);font-size:13.5px;margin-bottom:4px;}
+.rw-badge-done{display:inline-block;background:var(--mint-soft);color:var(--mint);border:1px solid rgba(47,224,166,.35);padding:5px 10px;border-radius:999px;font-size:11px;font-weight:700;}
+.attend-btn{width:100%;padding:13px;border-radius:12px;border:none;background:var(--gold);color:#1A1300;font-weight:700;font-size:13px;cursor:pointer;}
+.attend-btn:disabled{background:var(--surface-2);color:var(--muted-2);}
+.week-row{display:flex;justify-content:space-between;margin-top:14px;}
+.week-day{display:flex;flex-direction:column;align-items:center;gap:5px;}
+.week-day .wl{font-size:10px;color:var(--muted-2);}
+.week-dot{width:26px;height:26px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted-2);}
+.week-dot.done{background:var(--mint);border-color:var(--mint);color:#04241A;font-weight:700;}
+.progress-outer{width:100%;height:8px;background:var(--surface-2);border-radius:999px;overflow:hidden;margin-top:8px;}
+.progress-inner{height:100%;background:linear-gradient(90deg,var(--mint),var(--gold));border-radius:999px;}
+
+.tabbar{position:absolute;bottom:0;left:0;right:0;background:rgba(15,21,36,.92);backdrop-filter:blur(10px);border-top:1px solid var(--border);display:flex;padding:8px 6px 14px;}
+.tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;padding:6px 2px;color:var(--muted-2);}
+.tab-btn .ic{font-size:17px;} .tab-btn .lb{font-size:9px;font-weight:600;}
+.tab-btn.active{color:var(--text);}
+
+.toast{position:absolute;top:56px;left:20px;right:20px;background:var(--text);color:var(--bg);font-size:12px;font-weight:600;padding:11px 15px;border-radius:12px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;}
+.toast.show{opacity:1;}
+.modal-overlay{position:absolute;inset:0;background:rgba(6,9,17,.72);display:flex;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .2s;}
+.modal-overlay.show{opacity:1;pointer-events:auto;}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:22px;width:78%;text-align:center;}
+.modal-box h4{font-family:var(--font-d);font-size:15px;margin-bottom:6px;}
+.modal-box p{font-size:12px;color:var(--muted);margin-bottom:12px;}
+.modal-btn{width:100%;padding:11px;border-radius:10px;border:none;font-weight:700;font-size:12.5px;cursor:pointer;background:var(--mint);color:#04241A;margin-top:10px;}
+@media (max-width:420px){ body{padding:0;} .phone{height:100vh;border-radius:0;border:none;} }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="statusbar"><span id="apibaseTop" class="apibase-note"></span><span id="clockTop"></span></div>
+  <div class="app-header" id="appHeader" style="display:none;">
+    <div class="brand"><span class="mark"></span>종가예측게임</div>
+    <div class="points-pill">🪙 <span id="pointsPill">0</span>P</div>
+  </div>
+  <div class="content" id="content"></div>
+  <div class="toast" id="toast"></div>
+  <div class="modal-overlay" id="redeemModal"><div class="modal-box" id="redeemModalBody"></div></div>
+  <div class="modal-overlay" id="announceModal"><div class="modal-box" id="announceModalBody" style="text-align:left;"></div></div>
+  <div class="tabbar" id="tabbar" style="display:none;"></div>
+</div>
+
+<script>
+let state = {
+  apiBase: 'https://stock-game-ccga.onrender.com',
+  token: null, me: null,
+  stage: 'landing', tab: 'home',
+  activeGameId: null, activeTier: null, selectedValue: null,
+  games: [], carryover: [], tierConfigs: [], coupons: [], predictions: [], myCoupons: [],
+  seenAnnouncementIds: [],
+};
+
+async function api(path, method = 'GET', body) {
+  const res = await fetch(state.apiBase + path, {
+    method,
+    headers: { 'Content-Type': 'application/json', ...(state.token ? { Authorization: 'Bearer ' + state.token } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = (data && (data.message || data.error)) || res.statusText;
+    throw new Error(Array.isArray(msg) ? msg.join(', ') : msg);
+  }
+  return data;
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(window._t); window._t = setTimeout(() => t.classList.remove('show'), 2600);
+}
+function fmtPct(v) { v = Number(v); return (v > 0 ? '+' : '') + v.toFixed(1).replace(/\.0$/, '') + '%'; }
+function tierMetaBase(tier) {
+  return tier === 'LOW' ? { label: '하', name: '초급', dots: 1 }
+    : tier === 'MID' ? { label: '중', name: '중급', dots: 2 }
+    : { label: '상', name: '고급', dots: 3 };
+}
+function getCfg(tier) { return state.tierConfigs.find(c => c.tier === tier); }
+
+/* ---------------- tabs ---------------- */
+const TABS = [
+  { id: 'home', ic: '🏠', lb: '홈' }, { id: 'predict', ic: '🎯', lb: '예측' },
+  { id: 'attend', ic: '📅', lb: '출석' },
+  { id: 'wallet', ic: '💰', lb: '지갑' }, { id: 'coupon', ic: '🎁', lb: '쿠폰' }, { id: 'my', ic: '👤', lb: 'MY' },
+];
+function renderTabbar() {
+  document.getElementById('tabbar').innerHTML = TABS.map(t =>
+    `<button class="tab-btn ${state.tab === t.id ? 'active' : ''}" onclick="switchTab('${t.id}')"><span class="ic">${t.ic}</span><span class="lb">${t.lb}</span></button>`
+  ).join('');
+}
+function switchTab(id) { state.tab = id; render(); }
+
+/* ---------------- root render ---------------- */
+async function render() {
+  document.getElementById('clockTop').textContent = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('apibaseTop').textContent = state.apiBase.replace(/^https?:\/\//, '');
+  const c = document.getElementById('content');
+
+  if (state.stage !== 'app') {
+    document.getElementById('appHeader').style.display = 'none';
+    document.getElementById('tabbar').style.display = 'none';
+    c.innerHTML = state.stage === 'signup' ? screenSignup() : state.stage === 'login' ? screenLogin() : screenLanding();
+    return;
+  }
+  document.getElementById('appHeader').style.display = 'flex';
+  document.getElementById('tabbar').style.display = 'flex';
+  document.getElementById('pointsPill').textContent = (state.me?.points ?? 0).toLocaleString();
+  renderTabbar();
+
+  c.innerHTML = '<div class="empty">불러오는 중…</div>';
+  try {
+    if (state.tab === 'home') await renderHome(c);
+    else if (state.tab === 'predict') await renderPredict(c);
+    else if (state.tab === 'attend') await renderAttend(c);
+    else if (state.tab === 'wallet') await renderWallet(c);
+    else if (state.tab === 'coupon') await renderCoupon(c);
+    else if (state.tab === 'my') await renderMy(c);
+  } catch (e) {
+    c.innerHTML = `<div class="err">불러오기 실패: ${e.message}</div>`;
+  }
+}
+
+/* ---------------- landing / auth ---------------- */
+function screenLanding() {
+  return `
+  <div class="landing-wrap">
+    <div class="landing-logo">📈</div>
+    <div class="landing-title">종가예측게임</div>
+    <div class="landing-tag">다음 주식장의 종가를 맞혀보세요!</div>
+    <div class="landing-desc">실제 백엔드 서버와 연결된 앱입니다.<br>먼저 API 주소를 확인해주세요.</div>
+    <div class="field" style="margin-top:20px;"><label>API 주소</label><input id="apiBaseInput" value="${state.apiBase}"></div>
+    <button class="primary-btn" onclick="state.apiBase=document.getElementById('apiBaseInput').value.replace(/\\/$/,'');state.stage='signup';render()">회원가입하고 시작하기</button>
+    <div class="back-link" style="justify-content:center;" onclick="state.apiBase=document.getElementById('apiBaseInput').value.replace(/\\/$/,'');state.stage='login';render()">이미 계정이 있어요 · 로그인</div>
+  </div>`;
+}
+function screenSignup() {
+  return `
+  <div class="landing-wrap">
+    <div class="landing-logo">📈</div>
+    <div class="landing-title" style="font-size:18px;">회원가입</div>
+    <div class="section-sub" style="margin-top:8px;">가입하면 기본 300P를 바로 드려요</div>
+    <div class="field"><label>이름 (실명, 공개되지 않아요)</label><input id="su_name"></div>
+    <div class="field"><label>닉네임 (다른 사용자에게 보여져요)</label><input id="su_nickname" maxlength="20"></div>
+    <div class="field"><label>이메일</label><input id="su_email"></div>
+    <div class="field"><label>비밀번호 (8자 이상)</label><input id="su_password" type="password"></div>
+    <div class="field"><label>비밀번호 확인</label><input id="su_password2" type="password"></div>
+    <div class="field"><label>추천인 코드 (선택)</label><input id="su_ref"></div>
+
+    <div class="field" style="border-top:1px solid var(--border);padding-top:14px;margin-top:6px;">
+      <label>휴대폰 본인인증 (필수)</label>
+      <div style="display:flex;gap:6px;">
+        <input id="su_phone" placeholder="010-1234-5678" style="flex:1;">
+        <button type="button" class="primary-btn" style="width:auto;padding:9px 12px;margin-top:0;white-space:nowrap;" onclick="sendPhoneCode()">인증번호</button>
+      </div>
+    </div>
+    <div class="field" id="phoneCodeBox" style="display:none;">
+      <label>인증번호 6자리</label>
+      <div style="display:flex;gap:6px;">
+        <input id="su_code" maxlength="6" style="flex:1;">
+        <button type="button" class="primary-btn" style="width:auto;padding:9px 12px;margin-top:0;white-space:nowrap;background:var(--mint);color:#04241A;" onclick="verifyPhoneCode()">확인</button>
+      </div>
+      <div class="section-sub" id="phoneStatusMsg" style="margin:8px 0 0;"></div>
+    </div>
+
+    <div class="field" style="border-top:1px solid var(--border);padding-top:14px;margin-top:14px;">
+      <details style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11.5px;color:var(--muted);line-height:1.6;">
+        <summary style="cursor:pointer;font-weight:600;color:var(--text);">이용약관 및 개인정보 수집·이용 동의 (필수) — 전문 보기</summary>
+        <div style="margin-top:10px;">
+          <b style="color:var(--text);">수집 항목</b><br>이름, 휴대폰번호, 이메일, 닉네임<br><br>
+          <b style="color:var(--text);">수집 목적</b><br>
+          1) 쿠폰(모바일 상품권) 교환 시 발급 코드와 유효기간을 본인 명의로 인증된 휴대폰번호로 안전하게 전달하기 위함<br>
+          2) 한 사람이 여러 개의 계정을 만들어 회원가입 축하 포인트·추천인 보너스를 부정하게 반복 수령하는 것을 방지하기 위함 (휴대폰번호 기준 1인 1계정 원칙)<br><br>
+          <b style="color:var(--text);">보유 및 이용 기간</b><br>회원 탈퇴 시까지 보관하며, 탈퇴 후 지체 없이 파기합니다 (전자상거래법 등 관계 법령에 따라 일정 기간 별도 보관이 필요한 거래기록은 예외).<br><br>
+          동의를 거부하실 수 있으나, 거부 시 서비스 가입 및 쿠폰 교환 이용이 제한됩니다.
+        </div>
+      </details>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12.5px;cursor:pointer;">
+        <input type="checkbox" id="su_agree" style="width:16px;height:16px;flex-shrink:0;">
+        위 내용에 동의합니다 (필수)
+      </label>
+    </div>
+
+    <button class="primary-btn" onclick="doSignup()">가입하기</button>
+    <div class="err" id="authErr"></div>
+
+
+    <div class="back-link" style="justify-content:center;" onclick="state.stage='landing';render()">← 돌아가기</div>
+  </div>`;
+}
+function screenLogin() {
+  return `
+  <div class="landing-wrap">
+    <div class="landing-logo">📈</div>
+    <div class="landing-title" style="font-size:18px;">로그인</div>
+    <div class="field" style="margin-top:16px;"><label>이메일</label><input id="li_email"></div>
+    <div class="field"><label>비밀번호</label><input id="li_password" type="password"></div>
+    <label style="display:flex;align-items:center;gap:8px;margin:4px 0 14px;font-size:12.5px;cursor:pointer;">
+      <input type="checkbox" id="li_remember" style="width:16px;height:16px;flex-shrink:0;">
+      자동 로그인 (이 기기에서 로그인 상태 유지)
+    </label>
+    <button class="primary-btn" onclick="doLogin()">로그인</button>
+    <div class="err" id="authErr"></div>
+    <div class="back-link" style="justify-content:center;" onclick="state.stage='landing';render()">← 돌아가기</div>
+  </div>`;
+}
+let phoneVerificationToken = null;
+async function sendPhoneCode() {
+  const phone = document.getElementById('su_phone').value;
+  const errBox = document.getElementById('authErr'); errBox.textContent = '';
+  if (!phone) { errBox.textContent = '휴대폰번호를 입력하세요'; return; }
+  try {
+    await api('/auth/phone/send-code', 'POST', { phone });
+    document.getElementById('phoneCodeBox').style.display = 'block';
+    document.getElementById('phoneStatusMsg').textContent = '인증번호를 보냈어요 (개발 모드에서는 서버 콘솔 로그에서 확인하세요)';
+    showToast('📩 인증번호를 발송했어요');
+  } catch (e) { errBox.textContent = e.message; }
+}
+async function verifyPhoneCode() {
+  const phone = document.getElementById('su_phone').value;
+  const code = document.getElementById('su_code').value;
+  const errBox = document.getElementById('authErr'); errBox.textContent = '';
+  try {
+    const res = await api('/auth/phone/verify-code', 'POST', { phone, code });
+    phoneVerificationToken = res.verificationToken;
+    document.getElementById('phoneStatusMsg').textContent = '✅ 휴대폰 인증이 완료됐어요';
+    showToast('✅ 휴대폰 인증 완료');
+  } catch (e) { errBox.textContent = e.message; }
+}
+async function doSignup() {
+  const errBox = document.getElementById('authErr'); errBox.textContent = '';
+  if (!phoneVerificationToken) { errBox.textContent = '휴대폰 인증을 먼저 완료해주세요'; return; }
+  const password = document.getElementById('su_password').value;
+  const password2 = document.getElementById('su_password2').value;
+  if (password !== password2) { errBox.textContent = '비밀번호가 일치하지 않아요'; return; }
+  if (!document.getElementById('su_agree').checked) { errBox.textContent = '이용약관 및 개인정보 수집·이용에 동의해주세요'; return; }
+  try {
+    const dto = {
+      name: document.getElementById('su_name').value,
+      nickname: document.getElementById('su_nickname').value,
+      email: document.getElementById('su_email').value,
+      password,
+      referralCode: document.getElementById('su_ref').value || undefined,
+      phoneVerificationToken,
+      privacyConsent: true,
+    };
+    const res = await api('/auth/signup', 'POST', dto);
+    state.token = res.accessToken; state.me = res.user;
+    state.stage = 'app'; state.tab = 'home';
+    render();
+    showToast('🎉 회원가입 완료! +' + res.user.points + 'P 지급됐어요');
+    setTimeout(checkAnnouncementPopup, 500);
+  } catch (e) { errBox.textContent = e.message; }
+}
+async function doLogin() {
+  const errBox = document.getElementById('authErr'); errBox.textContent = '';
+  try {
+    const dto = { email: document.getElementById('li_email').value, password: document.getElementById('li_password').value };
+    const res = await api('/auth/login', 'POST', dto);
+    state.token = res.accessToken; state.me = res.user;
+    state.stage = 'app'; state.tab = 'home';
+    if (document.getElementById('li_remember').checked) {
+      saveSession(res.refreshToken);
+    } else {
+      clearSession();
+    }
+    render();
+    showToast('환영합니다! 오늘도 좋은 예측 되세요 🎯');
+    setTimeout(checkAnnouncementPopup, 500);
+  } catch (e) { errBox.textContent = e.message; }
+}
+async function doLogout() {
+  try { await api('/auth/logout', 'POST'); } catch (e) {}
+  state.token = null; state.me = null; state.stage = 'landing'; state.tab = 'home';
+  clearSession();
+  render();
+}
+
+/* ---------------- 자동 로그인 (기기에 로그인 상태 저장) ----------------
+ * 주의: Claude.ai 미리보기(artifact) 안에서는 브라우저 저장소가 동작하지 않습니다.
+ * 이 파일을 다운로드해서 실제 브라우저/서버로 열었을 때만 정상 동작해요. */
+const SESSION_KEY = 'jgpg_session';
+function saveSession(refreshToken) {
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify({ refreshToken, apiBase: state.apiBase })); } catch (e) {}
+}
+function clearSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+}
+async function tryRestoreSession() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) { saved = null; }
+  if (!saved || !saved.refreshToken) return false;
+
+  state.apiBase = saved.apiBase || state.apiBase;
+  try {
+    const tokens = await api('/auth/refresh', 'POST', { refreshToken: saved.refreshToken });
+    state.token = tokens.accessToken;
+    saveSession(tokens.refreshToken); // 리프레시 토큰 회전 - 새 값으로 갱신 저장
+    state.me = await api('/users/me');
+    state.stage = 'app'; state.tab = 'home';
+    return true;
+  } catch (e) {
+    clearSession();
+    return false;
+  }
+}
+
+
+async function checkAnnouncementPopup() {
+  try {
+    const list = await api('/announcements/active');
+    const unseen = list.filter(a => !state.seenAnnouncementIds.includes(a.id));
+    if (!unseen.length) return;
+    const a = unseen[0];
+    document.getElementById('announceModalBody').innerHTML = `
+      <div style="text-align:center;font-family:var(--font-d);font-weight:700;font-size:16px;">${a.title}</div>
+      ${a.imageUrl ? `<img src="${a.imageUrl}" style="max-width:100%;border-radius:12px;margin:12px 0;" onerror="this.style.display='none'">` : ''}
+      ${a.body ? `<div style="font-size:13px;color:var(--muted);margin-top:10px;line-height:1.6;">${a.body}</div>` : ''}
+      <button class="modal-btn" onclick="dismissAnnouncement('${a.id}')">확인했어요</button>`;
+    document.getElementById('announceModal').classList.add('show');
+  } catch (e) { /* 공지 로딩 실패는 조용히 무시 */ }
+}
+function dismissAnnouncement(id) {
+  state.seenAnnouncementIds.push(id);
+  document.getElementById('announceModal').classList.remove('show');
+  setTimeout(checkAnnouncementPopup, 350);
+}
+
+/* ---------------- 홈 ---------------- */
+async function renderHome(c) {
+  const [games, carryover] = await Promise.all([api('/games'), api('/games/carryover')]);
+  state.games = games; state.carryover = carryover;
+
+  const carryTotal = carryover.reduce((s, x) => s + x.points, 0);
+  const carryHtml = carryTotal > 0 ? `
+    <div class="carry-banner">
+      <div class="cb-head">↻ 이월된 포인트가 대기 중이에요</div>
+      <div class="cb-row">${['LOW', 'MID', 'HIGH'].map(t => {
+        const pot = carryover.find(x => x.tier === t);
+        return `<div class="cb-item"><span class="cb-lbl">${tierMetaBase(t).label}</span><span class="cb-val">${(pot?.points ?? 0).toLocaleString()}P</span></div>`;
+      }).join('')}</div>
+    </div>` : '';
+
+  c.innerHTML = `
+    <div class="section-title">오늘의 예측 게임</div>
+    <div class="section-sub">종목을 선택하고 종가를 예측해서 투자풀 배당을 받아보세요</div>
+    ${carryHtml}
+    ${games.length ? games.map(g => {
+      const poolTxt = g.tierPools.map(tp => {
+        let seg = tierMetaBase(tp.tier).label + ' ' + tp.poolPoints.toLocaleString() + 'P';
+        if (tp.carriedInPoints) seg += ` (↻${tp.carriedInPoints.toLocaleString()}P)`;
+        if (tp.bonusPoints) seg += ` +${tp.bonusPoints.toLocaleString()}P🎉`;
+        return seg;
+      }).join(' · ');
+      return `
+      <div class="game-card" onclick="openGame('${g.id}')">
+        <span class="market-badge ${g.stock.market}">${g.stock.market}</span>
+        <span class="badge ${g.status.toLowerCase()}" style="float:right;">${g.status}</span>
+        <div class="stock-name">${g.stock.name}</div>
+        <div class="stock-code">${g.stock.code}</div>
+        <div class="deadline" id="quote_${g.id}">시세 조회 중…</div>
+        <div class="deadline">⏱ ${new Date(g.deadlineAt).toLocaleString('ko-KR')}</div>
+        <div class="pool-line">💰 ${poolTxt}</div>
+        <div class="tier-dots-row">${g.tierPools.map(tp => `<span class="tier-chip-mini">${tierMetaBase(tp.tier).label}</span>`).join('')}</div>
+      </div>`;
+    }).join('') : '<div class="empty">진행 중인 게임이 없어요</div>'}
+  `;
+
+  games.forEach(g => fetchAndShowQuote(g.id, g.stock.id));
+}
+async function fetchAndShowQuote(gameId, stockId) {
+  const el = document.getElementById('quote_' + gameId);
+  if (!el) return;
+  try {
+    const q = await api('/stocks/' + stockId + '/quote');
+    if (q.error) { el.textContent = ''; return; }
+    const sign = q.changePercent > 0 ? '+' : '';
+    const color = q.changePercent > 0 ? 'var(--up)' : q.changePercent < 0 ? 'var(--down)' : 'var(--muted)';
+    el.innerHTML = `${q.price.toLocaleString()} <span style="color:${color};font-weight:700;">${sign}${q.changePercent}%</span>`;
+  } catch (e) { el.textContent = ''; }
+}
+function openGame(id) { state.activeGameId = id; state.activeTier = null; state.selectedValue = null; state.tab = 'predict'; render(); }
+
+/* ---------------- 예측 ---------------- */
+function tierChips(tier) {
+  const cfg = getCfg(tier); const step = Number(cfg.stepPct); const max = Number(cfg.maxPct);
+  let vals = []; for (let v = step; v <= max + 1e-9; v += step) vals.push(Math.round(v * 100) / 100);
+  if (!vals.length || vals[vals.length - 1] < max - 1e-9) vals.push(Math.round(max * 100) / 100);
+  const list = [];
+  for (let i = vals.length - 1; i >= 0; i--) { const v = vals[i]; const top = i === vals.length - 1; list.push({ val: -v, label: top ? '-' + v + '%↓' : '-' + v + '%' }); }
+  // 0%(보합)는 어떤 구간에도 포함되지 않아 선택지에서 제외 — 0%가 나오면 그 회차는 전원 이월돼요
+  vals.forEach((v, i) => { const top = i === vals.length - 1; list.push({ val: v, label: top ? '+' + v + '%↑' : '+' + v + '%' }); });
+  return list;
+}
+/** 선택한 값이 실제로 적중하는 구간(하한 초과 ~ 상한 이하)을 사람이 읽을 수 있는 문구로 변환 */
+function winRangeLabel(tier, value) {
+  if (value === null || value === undefined || value === 0) return '';
+  const cfg = getCfg(tier); const step = Number(cfg.stepPct); const max = Number(cfg.maxPct);
+  const mag = Math.abs(value);
+  const sign = value > 0 ? '+' : '-';
+  const lower = Math.max(Math.round((mag - step) * 100) / 100, 0);
+  const isTop = mag >= max - 1e-9;
+  const lowerLabel = lower <= 0 ? '0%' : sign + lower + '%';
+  if (isTop) return `적중 구간: ${lowerLabel} 초과 (상한 없음)`;
+  return `적중 구간: ${lowerLabel} 초과 ~ ${sign}${mag}% 이하`;
+}
+async function renderPredict(c) {
+  if (!state.tierConfigs.length) state.tierConfigs = await api('/tier-config');
+  const limits = await api('/predictions/limits').catch(() => ({}));
+  const g = state.games.find(x => x.id === state.activeGameId) || (await api('/games/' + state.activeGameId).catch(() => null));
+  if (!g) { c.innerHTML = '<div class="empty">게임을 홈에서 먼저 선택하세요</div>'; return; }
+
+  let body = `
+    <div class="back-link" onclick="state.activeGameId=null;switchTab('home')">← 게임 목록</div>
+    <div class="stock-hero">
+      <span class="market-badge ${g.stock.market}">${g.stock.market}</span>
+      <div class="stock-name">${g.stock.name} <span class="stock-code">${g.stock.code}</span></div>
+      <div class="deadline" id="quote_predict_${g.id}">시세 조회 중…</div>
+      <div class="deadline">⏱ ${new Date(g.deadlineAt).toLocaleString('ko-KR')}</div>
+    </div>
+    <div class="section-title">난이도를 선택하세요</div>
+    <div class="section-sub" style="margin-top:-6px;">난이도마다 하루 최대 3회, 마지막 베팅 후 8시간이 지나야 다시 베팅할 수 있어요</div>
+  `;
+  body += ['LOW', 'MID', 'HIGH'].map(t => {
+    const tp = g.tierPools.find(x => x.tier === t);
+    const cfg = getCfg(t);
+    const meta = tierMetaBase(t); const sel = state.activeTier === t;
+    const lim = limits[t];
+    const locked = !tp || (lim && !lim.canBet);
+    let limitNote = '';
+    if (tp && lim) {
+      if (lim.canBet) limitNote = `오늘 ${lim.betsToday}/${lim.dailyLimit}회 사용`;
+      else if (lim.betsToday >= lim.dailyLimit && !lim.nextAvailableAt) limitNote = `오늘 ${lim.dailyLimit}회 모두 사용`;
+      else if (lim.nextAvailableAt) limitNote = `다음 베팅: ${new Date(lim.nextAvailableAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+    }
+    return `
+    <div class="tier-card ${locked ? 'locked' : ''} ${sel ? 'selected' : ''}" onclick="${(tp && lim && lim.canBet) ? `selectTier('${t}')` : ''}">
+      <div>
+        <span class="tier-label">${meta.label}</span><span class="tier-name">${meta.name}</span>
+        ${!tp ? '<div class="tier-desc">🔒 이 게임에서 비활성화됨</div>' : `<div class="tier-desc">투자 ${cfg ? Number(cfg.fixedStake).toLocaleString() : '-'}P 고정 · ${limitNote}</div>`}
+      </div>
+      ${tp ? `<div class="tier-pool-num">${tp.poolPoints.toLocaleString()}P</div>` : ''}
+    </div>`;
+  }).join('');
+
+  if (state.activeTier) {
+    const t = state.activeTier; const cfg = getCfg(t);
+    const tp = g.tierPools.find(x => x.tier === t);
+    body += `
+    <div class="pool-card">
+      <div class="pool-head"><span class="live-dot"></span>${tierMetaBase(t).label}단계 투자 포인트</div>
+      <div class="pool-num">${tp.poolPoints.toLocaleString()} P</div>
+      ${tp.carriedInPoints ? `<div class="carry-badge">↻ 이월 ${tp.carriedInPoints.toLocaleString()}P 포함</div>` : ''}
+      ${tp.bonusPoints ? `<div class="bonus-badge">🎉 이벤트 보너스 +${tp.bonusPoints.toLocaleString()}P</div>` : ''}
+    </div>
+    <div class="section-title">예측 방향</div>
+    <div class="section-sub" style="margin-top:-6px;">⚠️ 등락률이 정확히 0%(보합)로 마감되면 그날은 적중자 없이 투자풀 전액이 다음 회차로 이월돼요</div>`;
+
+    if (t === 'HIGH') {
+      const max = Number(cfg.maxPct); const step = Number(cfg.stepPct); const v = state.selectedValue ?? 0;
+      body += `<div class="slider-box">
+        <div class="slider-value">${v > 0 ? '+' : ''}${v.toFixed(2)}%</div>
+        <input type="range" min="${-max}" max="${max}" step="${step}" value="${v}" oninput="setSliderVal(this.value)">
+      </div>
+      <div class="section-sub" id="winRangeNote" style="margin-top:8px;text-align:center;">${winRangeLabel(t, v)}</div>`;
+    } else {
+      body += `<div class="chip-grid">${tierChips(t).map(o => {
+        const cls = o.val > 0 ? 'up' : 'down';
+        return `<button class="chip ${cls} ${state.selectedValue === o.val ? 'active' : ''}" onclick="setChipVal(${o.val})">${o.label}</button>`;
+      }).join('')}</div>
+      <div class="section-sub" id="winRangeNote" style="margin-top:8px;">${winRangeLabel(t, state.selectedValue)}</div>`;
+    }
+
+    body += `
+      <div class="submit-bar">
+        <div class="reward-txt">이 난이도는 <b style="color:var(--gold);">${Number(cfg.fixedStake).toLocaleString()}P 고정</b> 투자예요 · 적중 시 투자풀을 비율대로 나눠 받아요</div>
+        <button class="submit-btn" ${(state.selectedValue !== null && state.selectedValue !== undefined) ? '' : 'disabled'} onclick="submitPrediction()">${Number(cfg.fixedStake).toLocaleString()}P 제출</button>
+      </div>`;
+  }
+  c.innerHTML = body;
+  fetchAndShowQuote('predict_' + g.id, g.stock.id);
+}
+function selectTier(t) { state.activeTier = t; state.selectedValue = null; render(); }
+function setChipVal(v) { state.selectedValue = v; render(); }
+function setSliderVal(v) { state.selectedValue = parseFloat(v); render(); }
+async function submitPrediction() {
+  try {
+    await api('/predictions', 'POST', { gameId: state.activeGameId, tier: state.activeTier, predictedPct: state.selectedValue });
+    state.me = await api('/users/me');
+    showToast('✅ 예측이 제출됐어요!');
+    state.activeGameId = null; state.activeTier = null;
+    switchTab('home');
+  } catch (e) { showToast('⚠️ ' + e.message); }
+}
+
+/* ---------------- 지갑 ---------------- */
+async function renderWallet(c) {
+  const [me, preds] = await Promise.all([api('/users/me'), api('/predictions/me')]);
+  state.me = me;
+  const win = preds.filter(p => p.status === 'win').length;
+  const done = preds.filter(p => p.status !== 'pending').length;
+  const rate = done ? Math.round(win / done * 100) : 0;
+  c.innerHTML = `
+    <div class="balance-card"><div class="section-sub" style="margin:0;">보유 포인트</div><div class="balance-num">${me.points.toLocaleString()} P</div></div>
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-num">${preds.length}</div><div class="stat-lbl">총 예측</div></div>
+      <div class="stat-box"><div class="stat-num">${win}</div><div class="stat-lbl">적중</div></div>
+      <div class="stat-box"><div class="stat-num">${rate}%</div><div class="stat-lbl">적중률</div></div>
+    </div>
+    <div class="section-title">예측 내역</div>
+    ${preds.length ? preds.map(p => `
+      <div class="pred-item">
+        <div>
+          <div>${p.game.stock.name} · ${tierMetaBase(p.tier).label}단계</div>
+          <div class="section-sub" style="margin:2px 0 0;">투자 ${p.stakePoints.toLocaleString()}P${p.game.actualPct !== null ? ' · 실제 ' + fmtPct(p.game.actualPct) : ''}</div>
+          <span class="status-tag ${p.status}">${p.status === 'pending' ? '정산 대기' : p.status === 'win' ? '적중 🎉 +' + p.payoutPoints.toLocaleString() + 'P' : '미적중 -' + p.stakePoints.toLocaleString() + 'P'}</span>
+        </div>
+        <div style="font-family:var(--font-m);font-weight:700;">${fmtPct(p.predictedPct)}</div>
+      </div>
+    `).join('') : '<div class="empty">예측 내역이 없어요</div>'}
+  `;
+}
+
+/* ---------------- 쿠폰 ---------------- */
+async function renderCoupon(c) {
+  const [coupons, mine] = await Promise.all([api('/coupons'), api('/coupons/me/redemptions')]);
+  state.coupons = coupons; state.myCoupons = mine;
+  const phoneVerified = !!state.me?.phone;
+  c.innerHTML = `
+    <div class="section-title">포인트로 쿠폰 교환하기</div>
+    <div class="section-sub">보유 포인트: <b style="color:var(--gold)">${(state.me?.points ?? 0).toLocaleString()}P</b></div>
+    ${!phoneVerified ? `
+      <div class="carry-banner" style="border-color:rgba(240,53,91,.35);background:var(--up-soft);">
+        <div class="cb-head" style="color:var(--up);">⚠️ 휴대폰 인증이 필요해요</div>
+        <div class="section-sub" style="margin:8px 0 0;">쿠폰 교환은 휴대폰 인증이 완료된 계정만 이용할 수 있어요. <span style="color:var(--gold);cursor:pointer;text-decoration:underline;" onclick="switchTab('my')">MY 탭에서 인증하기</span></div>
+      </div>` : ''}
+    ${coupons.map(cp => `
+      <div class="coupon-card">
+        <div class="coupon-emoji">${cp.emoji}</div>
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:13.5px;">${cp.name}</div>
+          <div class="section-sub" style="margin:3px 0 0;">재고 ${cp.stockQty}개 · ${cp.costPoints.toLocaleString()}P</div>
+        </div>
+        <button class="redeem-btn" ${(!phoneVerified || state.me.points < cp.costPoints || cp.stockQty <= 0) ? 'disabled' : ''} onclick="redeemCoupon('${cp.id}')">
+          ${!phoneVerified ? '인증 필요' : cp.stockQty <= 0 ? '품절' : state.me.points < cp.costPoints ? '포인트 부족' : '교환'}
+        </button>
+      </div>`).join('')}
+    <div class="section-title">내 쿠폰함 (${mine.length})</div>
+    ${mine.length ? mine.map(r => `
+      <div class="coupon-card">
+        <div class="coupon-emoji">${r.coupon.emoji}</div>
+        <div>
+          <div style="font-weight:600;font-size:13px;">${r.coupon.name}</div>
+          <div class="mycoupon-code">${r.codeSnapshot}</div>
+          <div class="section-sub" style="margin:6px 0 0;">유효기간 ${new Date(r.expirySnapshot).toLocaleDateString('ko-KR')}</div>
+        </div>
+      </div>`).join('') : '<div class="empty">교환한 쿠폰이 없어요</div>'}
+  `;
+}
+async function redeemCoupon(id) {
+  try {
+    const r = await api('/coupons/' + id + '/redeem', 'POST');
+    state.me = await api('/users/me');
+    document.getElementById('redeemModalBody').innerHTML = `
+      <div style="font-size:34px;margin-bottom:8px;">${r.coupon.emoji}</div>
+      <h4>${r.coupon.name} 교환 완료!</h4>
+      <p>아래 쿠폰번호와 유효기간을 확인하세요</p>
+      <div class="mycoupon-code" style="font-size:14px;padding:10px 14px;">${r.codeSnapshot}</div>
+      <div class="section-sub" style="margin-top:10px;">유효기간: ${new Date(r.expirySnapshot).toLocaleDateString('ko-KR')}</div>
+      <button class="modal-btn" onclick="document.getElementById('redeemModal').classList.remove('show');render();">확인했어요</button>`;
+    document.getElementById('redeemModal').classList.add('show');
+  } catch (e) { showToast('⚠️ ' + e.message); }
+}
+
+/* ---------------- 출석 ---------------- */
+async function renderAttend(c) {
+  const st = await api('/attendance/me');
+  const labels = ['월', '화', '수', '목', '금', '토', '일'];
+  c.innerHTML = `
+    <div class="section-title">출석체크 & 포인트 적립</div>
+    <div class="rw-card">
+      <h5>📅 오늘 출석체크</h5>
+      <div class="section-sub" style="margin-bottom:12px;">매일 출석하면 +10P · 이번주 월~일 개근 시 +50P 추가 · 이번달 개근 시 +300P 추가</div>
+      <button class="attend-btn" ${st.todayChecked ? 'disabled' : ''} onclick="checkAttendance()">${st.todayChecked ? '✅ 오늘 출석 완료' : '오늘 출석하고 +10P 받기'}</button>
+      <div class="week-row">
+        ${labels.map((l, i) => `<div class="week-day"><div class="week-dot ${st.weekAttendance[i] ? 'done' : ''}">${st.weekAttendance[i] ? '✓' : ''}</div><div class="wl">${l}</div></div>`).join('')}
+      </div>
+    </div>
+    <div class="rw-card">
+      <h5>🏆 이달의 출석</h5>
+      <div class="section-sub" style="margin-bottom:0;">이번 달 ${st.monthCount} / ${st.monthTarget}일 출석 · 만근 시 +300P</div>
+      <div class="progress-outer"><div class="progress-inner" style="width:${Math.min(100, st.monthCount / st.monthTarget * 100)}%"></div></div>
+    </div>
+  `;
+}
+async function checkAttendance() {
+  try {
+    const res = await api('/attendance/check-in', 'POST');
+    state.me = await api('/users/me');
+    let msg = `✅ 출석 완료! +${res.dailyPoint}P 적립됐어요`;
+    res.bonuses.forEach(b => { msg += ` · 🎊 ${b.label} +${b.amount}P`; });
+    showToast(msg);
+    render();
+  } catch (e) { showToast('⚠️ ' + e.message); }
+}
+
+/* ---------------- MY ---------------- */
+async function renderMy(c) {
+  const me = await api('/users/me'); state.me = me;
+  const phoneVerified = !!me.phone;
+  c.innerHTML = `
+    <div class="profile-card">
+      <div class="avatar"></div>
+      <div style="font-family:var(--font-d);font-weight:700;font-size:16px;">${me.nickname} 님</div>
+      <div class="section-sub" style="margin:4px 0 0;">${me.email}</div>
+    </div>
+    <div class="rw-card">
+      <h5>📱 휴대폰 본인인증</h5>
+      ${phoneVerified ? `
+        <span class="rw-badge-done">✅ 인증 완료 (${me.phone})</span>
+        <div class="section-sub" style="margin-top:8px;">쿠폰 교환과 추천인 보너스를 모두 이용할 수 있어요</div>
+      ` : `
+        <div class="section-sub" style="margin-bottom:10px;">이 계정은 아직 휴대폰 인증이 없어요. 인증을 완료하면 쿠폰 교환과 보류 중인 추천인 보너스를 받을 수 있어요.</div>
+        <div style="display:flex;gap:6px;">
+          <input id="my_phone" placeholder="010-1234-5678" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:9px 11px;color:var(--text);font-size:13px;">
+          <button type="button" class="primary-btn" style="width:auto;padding:9px 12px;margin-top:0;white-space:nowrap;" onclick="sendPhoneCodeMy()">인증번호</button>
+        </div>
+        <div id="myPhoneCodeBox" style="display:none;margin-top:10px;">
+          <div style="display:flex;gap:6px;">
+            <input id="my_code" maxlength="6" placeholder="인증번호 6자리" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:9px 11px;color:var(--text);font-size:13px;">
+            <button type="button" class="primary-btn" style="width:auto;padding:9px 12px;margin-top:0;white-space:nowrap;background:var(--mint);color:#04241A;" onclick="linkPhoneMy()">인증하기</button>
+          </div>
+        </div>
+      `}
+    </div>
+    <div class="referral-box">
+      <div class="section-sub" style="margin:0;">내 추천인 코드 (친구에게 공유하면 나는 +300P, 친구는 +200P 추가 · 휴대폰 인증 완료 후 지급)</div>
+      <div class="referral-code">${me.referralCode}</div>
+    </div>
+    <div class="menu-list">
+      <div class="menu-item" onclick="doLogout()">로그아웃 <span>›</span></div>
+    </div>
+  `;
+}
+let myPhoneVerificationToken = null;
+async function sendPhoneCodeMy() {
+  const phone = document.getElementById('my_phone').value;
+  if (!phone) { showToast('⚠️ 휴대폰번호를 입력하세요'); return; }
+  try {
+    await api('/auth/phone/send-code', 'POST', { phone });
+    document.getElementById('myPhoneCodeBox').style.display = 'block';
+    showToast('📩 인증번호를 발송했어요 (개발 모드: 서버 콘솔 로그 확인)');
+  } catch (e) { showToast('⚠️ ' + e.message); }
+}
+async function linkPhoneMy() {
+  const phone = document.getElementById('my_phone').value;
+  const code = document.getElementById('my_code').value;
+  try {
+    const v = await api('/auth/phone/verify-code', 'POST', { phone, code });
+    myPhoneVerificationToken = v.verificationToken;
+    const res = await api('/auth/link-phone', 'POST', { phoneVerificationToken: myPhoneVerificationToken });
+    state.me = await api('/users/me');
+    showToast(res.referralBonusGranted ? '✅ 휴대폰 인증 완료! 보류돼 있던 추천인 보너스도 지급됐어요' : '✅ 휴대폰 인증이 완료됐어요');
+    render();
+  } catch (e) { showToast('⚠️ ' + e.message); }
+}
+
+(async () => {
+  const restored = await tryRestoreSession();
+  render();
+  if (restored) setTimeout(checkAnnouncementPopup, 500);
+})();
+</script>
+</body>
+</html>

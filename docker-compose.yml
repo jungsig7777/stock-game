@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: jonggapredict
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-password}@db:5432/jonggapredict?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?필수 - .env 에서 값을 지정하세요}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?필수 - .env 에서 값을 지정하세요}
+      JWT_ACCESS_EXPIRES: 15m
+      JWT_REFRESH_EXPIRES: 7d
+      SIGNUP_BONUS_POINTS: 300
+      REFERRAL_NEW_BONUS_POINTS: 200
+      REFERRAL_EXISTING_BONUS_POINTS: 300
+      PORT: 4000
+    ports:
+      - "4000:4000"
+    command: sh -c "npx prisma migrate deploy && node dist/main.js"
+
+volumes:
+  db_data:

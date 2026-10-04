@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
+import axios from 'axios'; // 1. axios 임포트 추가
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -19,7 +20,19 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 4000;
   await app.listen(port);
+  
   // eslint-disable-next-line no-console
   console.log(`🚀 API 서버 실행 중: http://localhost:${port}`);
+
+  // 2. 외부 IP 출력 로직 추가
+  try {
+    const ipCheckUrl = process.env.IP_CHECK_URL || 'https://api.ipify.org?format=json';
+    const response = await axios.get(ipCheckUrl);
+    // eslint-disable-next-line no-console
+    console.log(`🌐 Server Outbound Public IP: ${response.data.ip}`);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('⚠️ IP 주소를 가져오는데 실패했습니다:', error.message);
+  }
 }
 bootstrap();

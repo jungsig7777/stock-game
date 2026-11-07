@@ -1,0 +1,282 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+model User {
+  id               String   @id @default(uuid())
+  email            String   @unique
+  passwordHash     String
+  name             String   // 실명 - 관리자/법적 용도로만 사용, 다른 사용자에게 노출하지 않음
+  nickname         String   @unique // 다른 사용자에게 보여지는 표시 이름
+  role             Role     @default(USER)
+  points           Int      @default(0)
+
+  // 어뷰징 방지: 반드시 휴대폰 본인인증을 완료해야 가입 가능.
+  // unique 제약으로 "같은 번호로 여러 계정 생성"을 DB 레벨에서 차단한다.
+  phone            String?  @unique
+
+  // 추천인 시스템
+  referralCode     String   @unique
+  referredBy       String?  // 나를 가입시켜준 사람의 userId
+  referredByUser   User?    @relation("Referrals", fields: [referredBy], references: [id])
+  referrals        User[]   @relation("Referrals")
+
+  // 로그인 유지
+  refreshTokenHash String?
+
+  // 개인정보 수집·이용 동의 (가입 필수) - 쿠폰 발송, 다중계정 방지를 위한 본인확인 목적
+  privacyConsentedAt DateTime?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  ledgerEntries    PointsLedger[]
+  predictions      Prediction[]
+  couponRedemptions CouponRedemption[]
+  attendanceLogs   AttendanceLog[]
+
+  @@index([referredBy])
+}
+
+// 휴대폰 인증번호 발송/검증 기록
+model PhoneVerification {
+  id        String   @id @default(uuid())
+  phone     String
+  code      String
+  verified  Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+}
+
+// 출석체크 (하루에 한 번, userId+date 유니크로 중복 출석을 DB 레벨에서 차단)
+model AttendanceLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  date      String   // 'YYYY-MM-DD' (KST 기준)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([userId])
+}
+
+// 모든 포인트 증감은 반드시 이 테이블을 통해 기록한다.
+// users.points 는 캐시된 합계 값이며, 정합성 배치가 주기적으로
+// SUM(points_ledger.delta) 와 비교해 불일치를 감지한다.
+model PointsLedger {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  delta     Int      // 지급은 양수, 차감은 음수
+  reason    String   // signup_bonus | referral_bonus_new | referral_bonus_existing
+                      // | daily_attend | weekly_full_attend | monthly_full_attend
+                      // | predict_stake | predict_payout | coupon_redeem
+                      // | admin_event_bonus | carryover_in | admin_adjustment
+  note      String?  // 관리자 수동 조정 등 자유 텍스트 사유 (예: "어뷰징 의심 - 다중계정")
+  refType   String?  // 'game' | 'prediction' | 'coupon' | 'user' 등 연관 엔티티 타입
+  refId     String?  // 연관 엔티티 id
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([reason])
+}
+
+// =========================================================
+// 2단계: 게임 / 난이도별 투자풀 / 예측 / 이월
+// =========================================================
+
+enum Tier {
+  LOW
+  MID
+  HIGH
+}
+
+enum GameStatus {
+  OPEN     // 예측 제출 가능
+  LOCKED   // 마감 시각 지남, 정산 대기 (배치가 아직 안 돌았거나 처리 중)
+  SETTLED  // 정산 완료
+}
+
+// 하/중/상 난이도의 예측 단위(%) · 최대범위(%) — 관리자가 일괄 수정하는 값
+model TierConfig {
+  tier       Tier     @id
+  stepPct    Decimal  @db.Decimal(5, 2)
+  maxPct     Decimal  @db.Decimal(5, 2)
+  fixedStake Int      @default(100) // 이 난이도에서 예측 1회당 고정으로 투자되는 포인트
+  updatedBy  String?
+  updatedAt  DateTime @updatedAt
+}
+
+// 난이도별로 적중자가 없을 때 다음 회차로 넘어가는 포인트
+model CarryoverPot {
+  tier      Tier     @id
+  points    Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model Stock {
+  id        String   @id @default(uuid())
+  market    String   // 'KR' | 'US'
+  name      String
+  code      String
+  createdAt DateTime @default(now())
+
+  games     Game[]
+}
+
+model Game {
+  id         String     @id @default(uuid())
+  stockId    String
+  stock      Stock      @relation(fields: [stockId], references: [id])
+  deadlineAt DateTime
+  status     GameStatus @default(OPEN)
+  actualPct  Decimal?   @db.Decimal(5, 2)
+  createdBy  String?
+  createdAt  DateTime   @default(now())
+  settledAt  DateTime?
+
+  tierPools   GameTierPool[]
+  predictions Prediction[]
+}
+
+// 게임(회차) x 난이도 조합별 투자풀. 난이도마다 완전히 별도로 쌓이고 별도로 배당된다.
+model GameTierPool {
+  id              String @id @default(uuid())
+  gameId          String
+  game            Game   @relation(fields: [gameId], references: [id])
+  tier            Tier
+  poolPoints      Int    @default(0)
+  bonusPoints     Int    @default(0) // 관리자 이벤트 보너스
+  carriedInPoints Int    @default(0) // 생성 시점에 이월분으로 합산된 금액(표시/추적용)
+  participants    Int    @default(0)
+
+  @@unique([gameId, tier])
+}
+
+model Prediction {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  gameId       String
+  game         Game      @relation(fields: [gameId], references: [id])
+  tier         Tier
+  predictedPct Decimal   @db.Decimal(5, 2)
+  stakePoints  Int
+  status       String    @default("pending") // pending | win | lose
+  payoutPoints Int?
+  createdAt    DateTime  @default(now())
+  settledAt    DateTime?
+
+  @@index([gameId, tier, status])
+  @@index([userId])
+}
+
+// =========================================================
+// 3단계: 쿠폰(코드/유효기간) / 만료 알림 설정·이력
+// =========================================================
+
+model Coupon {
+  id         String   @id @default(uuid())
+  name       String
+  emoji      String   @default("🎁")
+  costPoints Int
+  code       String
+  expiryDate DateTime
+  stockQty   Int
+  createdBy  String?
+  createdAt  DateTime @default(now())
+
+  redemptions CouponRedemption[]
+}
+
+// 교환 시점의 코드/유효기간을 스냅샷으로 저장한다.
+// (이후 관리자가 원본 쿠폰 정보를 수정해도 이미 지급된 내역은 바뀌지 않아야 하므로)
+model CouponRedemption {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  couponId       String
+  coupon         Coupon   @relation(fields: [couponId], references: [id])
+  codeSnapshot   String
+  expirySnapshot DateTime
+  costPoints     Int
+  redeemedAt     DateTime @default(now())
+
+  @@index([userId])
+}
+
+model NotifySettings {
+  id             String   @id @default("singleton")
+  telegramToken  String?
+  telegramChatId String?
+  telegramEnabled Boolean @default(false)
+  kakaoEnabled   Boolean  @default(false)
+  updatedAt      DateTime @updatedAt
+}
+
+model NotifyLog {
+  id        String   @id @default(uuid())
+  channel   String   // 'telegram' | 'kakao'
+  message   String
+  success   Boolean
+  createdAt DateTime @default(now())
+}
+
+// =========================================================
+// 4단계: 감사로그 / 부정거래(정합성) 모니터링
+// =========================================================
+
+// 관리자가 /admin/** 경로를 호출할 때마다 자동으로 남는 감사로그.
+// 누가(adminId) 언제(createdAt) 무엇을(method+path) 어떤 값으로(body) 바꿨는지 추적한다.
+model AuditLog {
+  id        String   @id @default(uuid())
+  adminId   String
+  method    String
+  path      String
+  body      Json?
+  createdAt DateTime @default(now())
+
+  @@index([adminId])
+  @@index([createdAt])
+}
+
+model FraudAlert {
+  id        String   @id @default(uuid())
+  type      String   // points_mismatch | high_win_rate | referral_burst
+  severity  String   @default("warn") // info | warn | critical
+  userId    String?
+  detail    String
+  resolved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([resolved])
+}
+
+// =========================================================
+// 공지사항 / 이벤트 팝업
+// =========================================================
+model Announcement {
+  id        String    @id @default(uuid())
+  title     String
+  body      String?   // 텍스트 내용 (선택)
+  imageUrl  String?   // 이미지 URL (선택) - 텍스트/이미지/둘 다 가능
+  active    Boolean   @default(true)
+  startAt   DateTime? // 비어있으면 즉시 노출
+  endAt     DateTime? // 비어있으면 무기한 노출
+  createdBy String?
+  createdAt DateTime  @default(now())
+}
